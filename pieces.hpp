@@ -1,10 +1,23 @@
+#ifndef PIECES_HPP
+#define PIECES_HPP
+
 #include <iostream>
 #include <vector>
+#include <memory>
+#include <typeinfo>
+#include <sstream>
+#include <cmath>
 
 struct Coords{
     int x;
     int y;
 };
+
+struct SafeSquares{
+    Coords square;
+    std::vector<Coords> SafeSquare_coords;
+};
+
 
 enum Color{
     Black,
@@ -24,14 +37,17 @@ enum FENChar{
     BlackQueen = 'q',
     BlackKing = 'k',
     BlackPawn = 'p',
-    None = 'q'
+    None = 'x'
 };
+
+
 
 class Piece {
     protected:
         Color _color;
         FENChar _FENChar;
         std::vector<Coords> _directions;
+        bool _hasMoved;
 
     public:
         Piece(Color _color):
@@ -49,6 +65,14 @@ class Piece {
 
         Color get_color(){
             return _color;
+        }
+
+        virtual bool get_hasMoved(){
+            return _hasMoved;
+        }
+
+        virtual void set_hasMoved(){
+            _hasMoved = true;
         }
 
         virtual std::string get_pieceType(){
@@ -123,7 +147,7 @@ class Queen : public Piece {
 
 class Rook : public Piece {
     private:
-        bool _hasMoved = false;
+        bool _hasMoved;
 
     public:
         Rook(Color piececolor):
@@ -138,11 +162,11 @@ class Rook : public Piece {
             _FENChar = (piececolor == White) ? WhiteRook : BlackRook;
         }
 
-        bool get_hasMoved(){
+        bool get_hasMoved() override {
             return _hasMoved;
         }
 
-        void set_hasMoved(){
+        void set_hasMoved() override {
             _hasMoved = true;
         }
 
@@ -172,11 +196,11 @@ class King : public Piece {
             _FENChar = (piececolor == White) ? WhiteKing : BlackKing;
         }
 
-        bool get_hasMoved(){
+        bool get_hasMoved() override {
             return _hasMoved;
         }
 
-        void set_hasMoved(){
+        void set_hasMoved() override {
             _hasMoved = true;
         }
 
@@ -207,11 +231,11 @@ class Pawn : public Piece {
 
         }
 
-        bool get_hasMoved(){
+        bool get_hasMoved() override {
             return _hasMoved;
         }
 
-        void set_hasMoved(){
+        void set_hasMoved() override {
             _hasMoved = true;
             _directions = {
                 {1, 0},
@@ -229,3 +253,5 @@ class Pawn : public Piece {
             return "pawn";
         }
 };
+
+#endif
