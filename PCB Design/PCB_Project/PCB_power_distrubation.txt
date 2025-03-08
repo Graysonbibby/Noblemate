@@ -1,0 +1,10 @@
+Board Information Report
+Filename     : C:\Users\Kunj_\OneDrive\Documents\GitHub\Noblemate\PCB Design\PCB_Project\PCB_power_distrubation.PcbDoc
+Date         : 2025-03-07
+Time         : 11:34:49 PM
+Time Elapsed : 00:00:00
+
+General
+    Board Size, 53.2548mmx80.2548mm
+    Components on board, 14
+count : 2
