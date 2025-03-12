@@ -1,0 +1,4 @@
+Change Component Designator: OldDesignator=HD3 NewDesignator=MG
+Change Component Designator: OldDesignator=HD7 NewDesignator=SGN
+Change Component Designator: OldDesignator=PI -5V NewDesignator=PI
+Change Component Designator: OldDesignator=R? NewDesignator=R2
