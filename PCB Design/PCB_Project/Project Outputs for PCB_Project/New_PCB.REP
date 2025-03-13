@@ -36,10 +36,10 @@ Used DCodes :
 *************************************************************
 
 *************************************************************
-Generating : Bottom Layer
+Generating : GND
       File : New_PCB_Copper_Signal_Bot.gbr
 
-    Adding Layer      : Bottom Layer
+    Adding Layer      : GND
 
     Adding Layer      : Multi-Layer
 
@@ -123,7 +123,7 @@ Generating : Bottom Solder
 
     Adding Layer      : Bottom Solder
 
-    Adding Layer      : Bottom Layer
+    Adding Layer      : GND
 
     Adding Layer      : Multi-Layer
 

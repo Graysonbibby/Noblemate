@@ -1,5 +1,5 @@
 ------------------------------------------------------------------------------------------
-Gerber File Extension Report For: New_PCB.GBR   2025-03-12  7:49:50 PM
+Gerber File Extension Report For: New_PCB.GBR   2025-03-13  10:27:50 AM
 ------------------------------------------------------------------------------------------
 
 
@@ -7,7 +7,7 @@ Gerber File Extension Report For: New_PCB.GBR   2025-03-12  7:49:50 PM
 Layer Extension     Layer Description                      
 ------------------------------------------------------------------------------------------
 .gbr                Top Layer                               
-.gbr                Bottom Layer                            
+.gbr                GND                                     
 .gbr                Top Overlay                             
 .gbr                Top Solder                              
 .gbr                Bottom Solder                           
