@@ -1,0 +1,571 @@
+#-------------------------------------------------------------------------------------------------------------------
+# Install SpeechRecognition Library 
+# Install google-cloud-speech Library
+
+import speech_recognition as sr #speech_recognition
+import re
+import difflib # Fuzzy Matching
+
+#-------------------------------------------------------------------------------------------------------------------
+
+#-------------------------------------------------------------------------------------------------------------------
+# Initialization Steps 
+recognizer = sr.Recognizer()
+recognizer.pause_threshold = 2              # Parameter to pause to change recording
+recognizer.dynamic_energy_threshold = True     # Automatically adjust energy threshold based on ambient noise
+
+#-------------------------------------------------------------------------------------------------------------------
+# Error Handling 
+# Saud - Custom Correction dictionary for similar sounding words
+corrections = {
+    # Letter Mapping
+    "alpha": "a",
+    "beta": "b",
+    "charlie": "c",
+    "delta": "d",
+    "echo": "e",
+    "foxtrot": "f",
+    "golf": "g",
+    "hotel": "h",
+    
+    "Alpha": "a",
+    "Beta": "b",
+    "Charlie": "c",
+    "Delta": "d",
+    "Echo": "e",
+    "Foxtrot": "f",
+    "Golf": "g",
+    "Hotel": "h",
+    
+    "A": "a",
+    "B": "b",
+    "C": "c",
+    "D": "d",
+    "E": "e",
+    "F": "f",
+    "G": "g",
+    "H": "h",
+    
+    # Number mapping
+    "one": "1",
+    "two": "2",
+    "too": "2",
+    "three": "3",
+    "tree": "3",
+    "four": "4",
+    "for": "4",
+    "five": "5",
+    "six": "6",
+    "seven": "7",
+    "eight": "8",
+    
+    # Corrections for "knight"
+    "night": "knight",
+    "nite": "knight",
+    "knite": "knight",
+    "nigt": "knight",
+    "knife": "knight",
+    "horse": "knight",
+
+    # Corrections for "pawn"
+    "han": "pawn",
+    "todd": "pawn",
+    "juan": "pawn",
+    "pahn": "pawn",
+    "pown": "pawn",
+    "upon": "pawn",
+    "on"  : "pawn",
+
+    # Corrections for "rook"
+    "rock": "rook",
+    "ruke": "rook",
+    "book": "rook",
+    "brooke": "rook",
+    "brook": "rook",
+    
+    # Corrections for "bishop"
+    "bishup": "bishop",
+    "bischop": "bishop",
+    "bisshop": "bishop",
+    
+    # Corrections for "queen"
+    "quean": "queen",
+    "quin": "queen",
+    "keen": "queen",
+    
+    # Corrections for "king"
+    "kin": "king",
+    "thing": "king",
+        
+    # -----------------------------------------------------------------
+        
+    # Corrections for "easy"
+    "ez": "easy",
+    "ease": "easy",
+    "eazy": "easy",
+    "ezee": "easy",
+    "ezzy": "easy",
+    "eisy": "easy",
+    
+    # Corrections for "medium"
+    "mediom": "medium",
+    "midium": "medium",
+    "medum": "medium",
+    "medyum": "medium",
+    "mediem": "medium",
+    
+    # Corrections for "difficult"
+    "diffcult": "difficult",
+    "difficut": "difficult",
+    "dificult": "difficult",
+    "dificolt": "difficult",
+    "difikult": "difficult",
+    "difficl": "difficult",
+    "difficlt": "difficult",
+    "difikult": "difficult",  # additional common variant
+    "difikult": "difficult",
+    
+    # Corrections for "insane"
+    "insan": "insane",
+    "in sane": "insane",
+    "insain": "insane",
+    "insayn": "insane",
+    "inzane": "insane",
+    "inzain": "insane",
+    "insanely": "insane",
+    "inssane": "insane",
+
+    #----------------------------------------------------------------
+    
+    # Corrections for "white"
+    "wite": "white",
+    "whte": "white",
+    "wit": "white",
+    "whit": "white",
+    
+    # Corrections for "black"
+    "bleck": "black",
+    "bak": "black",
+    "blak": "black",
+    "blk": "black",
+    "balck": "black",
+    
+    #----------------------------------------------------------------
+    
+    # Corrections for "move"
+    "muv": "move",
+    "moove": "move",
+    "mew": "move",
+    "moo": "move",
+    "movee": "move",
+
+    # Corrections for "view"
+    "vie": "view",
+    "viev": "view",
+    "vyou": "view",
+    "vee": "view",
+    "vyo": "view",
+
+    #----------------------------------------------------------------
+
+    # Corrections for "rematch"
+    "remach": "rematch",
+    "re match": "rematch",
+    "remtch": "rematch",
+    "ramatch": "rematch",
+    "re-match": "rematch",
+    
+    # Corrections for "exit"
+    "exut": "exit",
+    "exet": "exit",
+    "exot": "exit",
+    "exitt": "exit",
+    "ex-it": "exit"
+}
+
+
+# --------------------------------------------------------------------------------
+# --------------------------------------------------------------------------------
+# 1. Obtaining location information for Desired Move
+
+# Valid chess pieces for fuzzy matching
+valid_pieces = ["pawn", "knight", "bishop", "rook", "queen", "king"]
+
+# Return the correct chess piece using static corrections and fuzzy matching.
+def get_correct_piece(word):
+    word_lower = word.lower()
+    if word_lower in corrections:
+        return corrections[word_lower]
+    matches = difflib.get_close_matches(word_lower, valid_pieces, n=1, cutoff=0.6)
+    return matches[0] if matches else word_lower
+
+#-------------------------------------------------------------------------------------------------------------------
+# Conversion of Letters Back to Numbers (ex. A -> 1)
+def map_square_file_to_number(square):
+    letter = square[0].upper()
+    return ord(letter) - ord('A') + 1
+
+def convert_square_to_numeric(square):
+    file_number = map_square_file_to_number(square)
+    rank = square[1]
+    return f"{file_number}{rank}"
+
+# ----------------------------------------------------------------------------------------------
+
+# Getting User Input
+def get_user_move():
+    while True:
+        try:
+            with sr.Microphone() as source:
+                print("\nCalibrating for ambient noise (Please remain silent for a moment).")
+                recognizer.adjust_for_ambient_noise(source, duration=1.0)
+                print("Listening for your move (e.g., 'Knight from E2 to F4'). Please speak clearly:")
+                audio_data = recognizer.listen(source)
+
+            # This line uses Google's Speech to Text to recognize your raw input back to a guess of what your said
+            # This serves as the raw input to the system. With word correction, you have a more useable input
+            spoken_text = recognizer.recognize_google(audio_data) 
+            
+            if not spoken_text.strip():
+                print("No input detected. Please speak your command.")
+                continue
+            
+            print(f"\nYou said: \"{spoken_text}\"")
+            
+
+        # Error Handling from ChatGPT
+        except sr.UnknownValueError:
+            print("I couldn't understand your speech. Please try again and speak a bit more clearly.")
+            continue
+
+        except sr.RequestError as e:
+            print(f"Request error from Google Cloud Speech; {e}.")
+            continue
+
+        except Exception as e:
+            print(f"An unexpected error occurred: {e}")
+            continue
+
+        # Process the spoken text
+        # First we will apply Corrections, then remove filler words then isolate the important information to be saved later
+        move_text = spoken_text.lower()
+        words = move_text.split()
+        # Apply static corrections first
+        corrected_words = [corrections.get(word, word) for word in words]
+        move_text = " ".join(corrected_words)
+        
+        # Combine separated rank and file (e.g., "e 2" -> "e2")
+        move_text = re.sub(r'\b([a-h])\s+([1-8])\b', r'\1\2', move_text)
+
+        # Remove filler words like "move", "from", "to"
+        move_text = re.sub(r'\b(move|from|to)\b', '', move_text)
+
+        # Clean up extra spaces
+        move_text = re.sub(r'\s+', ' ', move_text).strip()
+        
+        # Split the processed text into components
+        parts = move_text.split()
+        piece = None
+        start_sq = None
+        end_sq = None
+
+        if len(parts) == 2:
+            # If only two parts are provided, assume it's a pawn move
+            piece = "pawn"
+            start_sq, end_sq = parts
+        elif len(parts) == 3:
+            # Use fuzzy matching for the piece name in three-part input
+            piece = get_correct_piece(parts[0])
+            start_sq, end_sq = parts[1], parts[2]
+        else:
+            print("Could not parse your move. Ensure you say something like 'Knight from A2 to B3'.")
+            continue
+
+        # Validate board squares (must be a letter a-h and a number 1-8)
+        valid_square = lambda s: len(s) == 2 and s[0] in "abcdefgh" and s[1] in "12345678"
+        if piece not in valid_pieces or not valid_square(start_sq) or not valid_square(end_sq):
+            print("Invalid move format. Please use valid piece names and board coordinates (e.g., A2, B3).")
+            continue
+
+        # Format squares to uppercase for clarity
+        start_sq = start_sq[0].upper() + start_sq[1]
+        end_sq = end_sq[0].upper() + end_sq[1]
+        start_sq_numeric = convert_square_to_numeric(start_sq)
+        end_sq_numeric = convert_square_to_numeric(end_sq)
+        break
+    return piece.capitalize(), start_sq_numeric, end_sq_numeric
+
+# --------------------------------------------------------------------------------
+#---------------------------------------------------------------------------------
+# 2. Selecting the Game Mode from the Allowed Modes
+def get_game_mode():
+    allowed_modes = ["easy", "medium", "difficult", "insane"]
+    recognizer.pause_threshold = 2 
+    while True:
+        try:
+            with sr.Microphone() as source:
+                print("\nCalibrating for ambient noise (please remain silent for a moment)...")
+                recognizer.adjust_for_ambient_noise(source, duration=1.0)
+                print("Please say your game mode: easy, medium, difficult or insane:")
+                audio_data = recognizer.listen(source)
+            
+            mode_text = recognizer.recognize_google(audio_data)
+            
+            # Check if the recognized text is empty or only whitespace.
+            if not mode_text.strip():
+                print("No input detected. Please speak your game mode.")
+                continue
+            
+            print(f"\nYou said: \"{mode_text}\"")
+        
+        except sr.UnknownValueError:
+            print("Could not understand your speech. Please try again.")
+            continue
+        except sr.RequestError as e:
+            print(f"Request error from Google Cloud Speech: {e}")
+            continue
+        except Exception as e:
+            print(f"An unexpected error occurred: {e}")
+            continue
+        
+        mode_text = mode_text.lower().strip()
+        
+        # Manual Corrections.
+        words = mode_text.split()
+        corrected_words = [corrections.get(word, word) for word in words]
+        corrected_text = " ".join(corrected_words)
+        
+        # Check if present in array 
+        for mode in allowed_modes:
+            if mode in corrected_text:
+                return mode.capitalize()
+            
+        # Fuzzy Matching
+        first_word = corrected_text.split()[0]
+        match = difflib.get_close_matches(first_word, allowed_modes, n=1, cutoff=0.6)
+        if match:
+            return match[0].capitalize()
+        
+        print("Invalid mode. Please say 'easy', 'medium', 'difficult' or 'insane'.\n")
+
+# --------------------------------------------------------------------------------
+# --------------------------------------------------------------------------------
+# 3. Selecting the Colour Mode for User 
+
+def get_player_color():
+    allowed_colors = ["white", "black"]
+    recognizer.pause_threshold = 2
+    while True:
+        try:
+            with sr.Microphone() as source:
+                print("\nCalibrating for ambient noise (please remain silent for a moment)...")
+                recognizer.adjust_for_ambient_noise(source, duration=1.0)
+                print("Please say your color: white or black:")
+                audio_data = recognizer.listen(source)
+            
+            color_text = recognizer.recognize_google(audio_data)
+            
+            # Check if no input was detected.
+            if not color_text.strip():
+                print("No input detected. Please speak your color.")
+                continue
+            
+            print(f"\nYou said: \"{color_text}\"")
+        
+        except sr.UnknownValueError:
+            print("Could not understand your speech. Please try again.")
+            continue
+        except sr.RequestError as e:
+            print(f"Request error from Google Cloud Speech: {e}")
+            continue
+        except Exception as e:
+            print(f"An unexpected error occurred: {e}")
+            continue
+        
+        # Process the recognized text.
+        color_text = color_text.lower().strip()
+        words = color_text.split()
+
+        # Manual Corrections.
+        corrected_words = [corrections.get(word, word) for word in words]
+        corrected_text = " ".join(corrected_words)
+        
+        # Check if present in array 
+        for color in allowed_colors:
+            if color in corrected_text:
+                return color.capitalize()
+        
+        # Fuzzy Matching
+        first_word = corrected_text.split()[0]
+        match = difflib.get_close_matches(first_word, allowed_colors, n=1, cutoff=0.6)
+        if match:
+            return match[0].capitalize()
+        
+        print("Invalid color. Please say 'white' or 'black'.\n")
+
+# --------------------------------------------------------------------------------
+# --------------------------------------------------------------------------------
+# 4. Selecting the 'Move' or 'View' Command for User 
+
+def get_command():
+    allowed_commands = ["move", "view"]
+    recognizer.pause_threshold = 2
+    while True:
+        try:
+            with sr.Microphone() as source:
+                print("\nCalibrating for ambient noise (please remain silent for a moment)...")
+                recognizer.adjust_for_ambient_noise(source, duration=1.0)
+                print("Please say your command: move or view:")
+                audio_data = recognizer.listen(source)
+            
+            command_text = recognizer.recognize_google(audio_data)
+            
+            if not command_text.strip():
+                print("No input detected. Please speak your command.")
+                continue
+            
+            print(f"\nYou said: \"{command_text}\"")
+        
+        except sr.UnknownValueError:
+            print("Could not understand your speech. Please try again.")
+            continue
+        except sr.RequestError as e:
+            print(f"Request error from Google Cloud Speech: {e}")
+            continue
+        except Exception as e:
+            print(f"An unexpected error occurred: {e}")
+            continue
+        
+        # Process the recognized text.
+        command_text = command_text.lower().strip()
+        words = command_text.split()
+        
+        # Manual Corrections.
+        corrected_words = [corrections.get(word, word) for word in words]
+        corrected_text = " ".join(corrected_words)
+        
+        # Check if present in array 
+        for cmd in allowed_commands:
+            if cmd in corrected_text:
+                return cmd.capitalize()
+        
+        # Fuzzy Matching
+        first_word = corrected_text.split()[0]
+        match = difflib.get_close_matches(first_word, allowed_commands, n=1, cutoff=0.6)
+        if match:
+            return match[0].capitalize()
+        
+        print("Invalid command. Please say 'move' or 'view'.\n")
+
+# --------------------------------------------------------------------------------
+# --------------------------------------------------------------------------------
+# 5. Promotion Voice Recognition 
+
+def get_promotion_piece():
+    allowed_pieces = ["queen", "knight"]
+    recognizer.pause_threshold = 2
+    while True:
+        try:
+            with sr.Microphone() as source:
+                print("\nCalibrating for ambient noise (please remain silent for a moment)...")
+                recognizer.adjust_for_ambient_noise(source, duration=1.0)
+                print("Please say your promotion piece: queen or knight:")
+                audio_data = recognizer.listen(source)
+            
+            promotion_text = recognizer.recognize_google(audio_data)
+            if not promotion_text.strip():
+                print("No input detected. Please speak your promotion piece.")
+                continue
+            
+            print(f"\nYou said: \"{promotion_text}\"")
+        
+        except sr.UnknownValueError:
+            print("Could not understand your speech. Please try again.")
+            continue
+        except sr.RequestError as e:
+            print(f"Request error from Google Cloud Speech: {e}")
+            continue
+        except Exception as e:
+            print(f"An unexpected error occurred: {e}")
+            continue
+        
+        # Process the recognized text.
+        promotion_text = promotion_text.lower().strip()
+        words = promotion_text.split()
+        corrected_words = [corrections.get(word, word) for word in words]
+        corrected_text = " ".join(corrected_words)
+        
+        # Manual Corrections.
+        for piece in allowed_pieces:
+            if piece in corrected_text:
+                return piece.capitalize()
+        
+        # Fuzzy Matching
+        first_word = corrected_text.split()[0]
+        match = difflib.get_close_matches(first_word, allowed_pieces, n=1, cutoff=0.6)
+        if match:
+            return match[0].capitalize()
+        
+        print("Invalid input. Please say 'queen' or 'knight'.\n")
+
+
+# --------------------------------------------------------------------------------
+# --------------------------------------------------------------------------------
+# 6. Rematch/Exit Functionality 
+
+def get_reset_condition():
+    allowed_conditions = ["rematch", "exit"]
+    recognizer.pause_threshold = 2
+    while True:
+        try:
+            with sr.Microphone() as source:
+                print("\nCalibrating for ambient noise (please remain silent for a moment)...")
+                recognizer.adjust_for_ambient_noise(source, duration=1.0)
+                print("Please say your option: 'rematch' to play again, or 'exit' to quit:")
+                audio_data = recognizer.listen(source)
+            
+            rset_text = recognizer.recognize_google(audio_data)
+            
+            # Check if no input was detected.
+            if not rset_text.strip():
+                print("No input detected. Please speak your option clearly.")
+                continue
+            
+            print(f"\nYou said: \"{rset_text}\"")
+        
+        except sr.UnknownValueError:
+            print("Could not understand your speech. Please try again.")
+            continue
+        except sr.RequestError as e:
+            print(f"Request error from Google Cloud Speech: {e}")
+            continue
+        except Exception as e:
+            print(f"An unexpected error occurred: {e}")
+            continue
+        
+        rset_text = rset_text.lower().strip()
+        
+        # Apply manual corrections to each word.
+        words = rset_text.split()
+        corrected_words = [corrections.get(word, word) for word in words]
+        corrected_text = " ".join(corrected_words)
+        
+        # Manual Corrections.
+        for rcondition in allowed_conditions:
+            if rcondition in corrected_text:
+                return rcondition.capitalize()
+        
+        # Fuzzy Matching
+        first_word = corrected_text.split()[0]
+        match = difflib.get_close_matches(first_word, allowed_conditions, n=1, cutoff=0.6)
+        if match:
+            return match[0].capitalize()
+        
+        print("Invalid option. Please say 'rematch' or 'exit'.\n")
+
+# --------------------------------------------------------------------------------
+
+    
+if __name__ == "__main__":
+    mode = get_reset_condition()
+    print(f"\nOption Selected: {mode}")

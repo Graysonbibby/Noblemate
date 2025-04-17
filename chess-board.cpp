@@ -27,7 +27,6 @@ bool chessBoard::areCoordsValid(int x, int y) {
     return x >= 0 && y >= 0 && x < chessBoardSize && y < chessBoardSize;
 }
 
-//to implement would probably loop through the board to check (probably used in capture or move function)
 bool chessBoard::isPositionSafeAfterMove(Piece* piece, int prevX, int prevY, int newX, int newY){
     //moving some piece to newX and newY
     Piece* newPiece = chessboard[newX][newY];
@@ -186,6 +185,7 @@ void chessBoard::handlingSpecialMoves(Piece* piece, int prevX, int prevY, int ne
         chessboard[rookPositionX][rookPositionY] = nullptr;
         chessboard[rookPositionX][rookNewPositionY] = rook;
         (*rook).set_hasMoved();
+        _moveTypeFlag = "4";
     }
     
     if((*piece).get_pieceType() == "pawn" && _lastMove.piece){
@@ -199,6 +199,7 @@ void chessBoard::handlingSpecialMoves(Piece* piece, int prevX, int prevY, int ne
                 chessboard[_lastMove.currX][_lastMove.currY] = nullptr;
                 delete capturedPawn;
             }
+            _moveTypeFlag = "3";
         }
     }
 }//end handlingSpecialMoves()
@@ -211,7 +212,7 @@ bool chessBoard::canCaptureEnPassant(Piece* pawn, int pawnX, int pawnY){
 
     Piece* piece = _lastMove.piece;
 
-    int prevX, prevY, currX, currY;///START DEBUGGING FROM HERE!!!!
+    int prevX, prevY, currX, currY;
     prevX = _lastMove.prevX; 
     prevY = _lastMove.prevY;
     currX = _lastMove.currX;
@@ -245,9 +246,17 @@ bool chessBoard::isGameFinished(){
         if(_isInCheck){
             std::string prev_player = _playerColor == White ? "Black" : "White";
             _gameOverMessage = prev_player + " won by checkmate!";
+            _checkmateFlag = "2";
         } else {
             _gameOverMessage = "Stalemate";
+            _checkmateFlag = "3";
         }
+        
+        return true;
+    }
+
+    if(threeFoldRepetitionFlag){
+        _gameOverMessage = "Draw due to three move repetition!";
         return true;
     }
 
@@ -329,8 +338,7 @@ bool chessBoard::insufficientMaterial() {
 
         if(whiteBishop && blackBishop) {
             bool areBishopsOfSameColor = isSquareDark((*whiteBishop).x, (*whiteBishop).y) && isSquareDark((*blackBishop).x, (*blackBishop).y) ||
-                                             !isSquareDark((*whiteBishop).x, (*whiteBishop).y) && !isSquareDark((*blackBishop).x, (*blackBishop).y);
-                
+                                             !isSquareDark((*whiteBishop).x, (*whiteBishop).y) && !isSquareDark((*blackBishop).x, (*blackBishop).y);`   
             return areBishopsOfSameColor;
         }
     }
@@ -349,6 +357,36 @@ bool chessBoard::insufficientMaterial() {
         
 }//end insufficientMaterial
 
+void chessBoard::updateThreeFoldRepetitionDictionary(std::string FEN){
+    std::vector<std::string> threeFoldString;
+    std::string threeFoldRepetitionFENKey = "";
+
+    int start_index = 0;
+    for(int i = 0; FEN[i] != '\0'; i++){
+        if(FEN[i] == ' '){
+            threeFoldString.push_back(FEN.substr(start_index, i-start_index));
+            start_index = i+1;
+        }
+    }
+
+    for(int i = 0; i < 4; i++){
+        threeFoldRepetitionFENKey += threeFoldString[i];
+    }
+
+    if(repetitionCounts.find(threeFoldRepetitionFENKey) == repetitionCounts.end()){
+        repetitionCounts[threeFoldRepetitionFENKey] = 1;
+    } else {
+        repetitionCounts[threeFoldRepetitionFENKey] += 1;
+    }
+
+    if(repetitionCounts[threeFoldRepetitionFENKey] >= 3){
+        threeFoldRepetitionFlag = true;
+    }
+}
+
+void chessBoard::clearThreeFoldRepetitionDictionary(){
+    repetitionCounts.clear();
+}
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -376,10 +414,11 @@ chessBoard::chessBoard(){
             new King(Black), new Bishop(Black), new Knight(Black), new Rook(Black)
         },
     };
+
     _safeSquares = findSafeSquares();
 }//end of chessBoard() constructor
 
-////BEGINNING OF GETTERS AND SETTERS METHODS
+        ////BEGINNING OF GETTERS AND SETTERS METHODS
 
 //method to get the current player's color (whose move it is)
 Color chessBoard::get_playerColor(){
@@ -401,16 +440,55 @@ std::vector<std::vector<FENChar>> chessBoard::chessBoardView(){
     return FENChar_chessboard;
 }//end FENChar chessBoardView()
 
-//with this we can get all of the safe squares for all of the pieces of the current player's color
-//that contains the x and y coordinates of the piece position. 
-//To find where the piece can go, the player only needs to enter in the piece's coordinates (need a 
-//board position to coordinate converter to map all e4, a2, etc. positions to actual coordinates on
-//the board)
-//From that, the player can receive all of the available corrdinates for that given piece (need a function
-//to take those coordinates and output them as board position values and a function to link those values
-//to LEDs on the board if that is something we are implementing)
 std::vector<SafeSquares> chessBoard::get_safeSquares(){
     return _safeSquares;
+}
+
+void chessBoard::reset_board(){
+    for(int i = 0; i < chessBoardSize; i++){
+        for(int j = 0; j < chessBoardSize; j++){
+            if(!chessboard[i][j]) continue;
+            else {
+                Piece* piece = chessboard[i][j];
+                chessboard[i][j] = nullptr;
+                delete piece;
+            }
+        }
+    }
+    
+    chessboard = {
+        {
+            new Rook(White), new Knight(White), new Bishop(White), new Queen(White),
+            new King(White), new Bishop(White), new Knight(White), new Rook(White)
+        },
+        {
+            new Pawn(White), new Pawn(White), new Pawn(White), new Pawn(White),
+            new Pawn(White), new Pawn(White), new Pawn(White), new Pawn(White)
+        },
+        {nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
+        {nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
+        {nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
+        {nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
+        {
+            new Pawn(Black), new Pawn(Black), new Pawn(Black), new Pawn(Black),
+            new Pawn(Black), new Pawn(Black), new Pawn(Black), new Pawn(Black)
+        },
+        {
+            new Rook(Black), new Knight(Black), new Bishop(Black), new Queen(Black),
+            new King(Black), new Bishop(Black), new Knight(Black), new Rook(Black)
+        },
+    };
+    _playerColor = White;
+    _safeSquares = findSafeSquares();
+    _isInCheck = false;
+    _pawnPromoted = false;
+    _isGameOver = false;
+    fiftyMoveRuleCounter = 0;
+    fullNumberOfMoves = 1;
+    clearThreeFoldRepetitionDictionary();
+    threeFoldRepetitionFlag = false;
+     
+    _boardAsFEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 }
 
 //Getter and setter for chessBoardSize variable
@@ -451,7 +529,47 @@ bool chessBoard::get_isGameOver(){
     return _isGameOver;
 }
 
-////END OF GETTER AND SETTER METHODS
+//getter for FENString representation of board
+std::string chessBoard::get_FENBoard(){
+    return convertBoardToFEN(chessboard, _playerColor, (&_lastMove), fiftyMoveRuleCounter, fullNumberOfMoves);
+}
+
+//getters and setters for user and engine colours
+void chessBoard::set_Colors(std::string color){
+    if(color == "White"){
+        userColor = White;
+    } else {
+        userColor = Black;
+    }
+    
+    engineColor = userColor == White ? Black : White;
+}
+
+Color chessBoard::get_UserColor(){
+    return userColor;
+}
+
+Color chessBoard::get_EngineColor(){
+    return engineColor;
+}
+
+void chessBoard::set_enginePromotedPiece(char promotedPiece){
+    enginePromotedPiece = promotedPiece;
+}
+
+void chessBoard::set_moveTypeFlag(std::string moveType){
+    _moveTypeFlag = moveType;
+}
+
+void chessBoard::set_moveCoords(std::string moveCoords){
+    _moveCoords = moveCoords;
+}
+
+void chessBoard::set_checkmateFlag(std::string checkmateFlag){
+    _checkmateFlag = checkmateFlag;
+}
+
+            ////END OF GETTER AND SETTER METHODS
 
 bool chessBoard::isSquareDark(int x, int y){    
     return x % 2 == 0 && y % 2 == 0 || x % 2 == 1 && y % 2 == 1;
@@ -474,7 +592,7 @@ bool chessBoard::isInCheck(Color playerColor, bool checkingCurrentPosition){
                 //or all of their possible attacks are already defined in the _directions variable.
                 if ((*piece).get_pieceType() == "pawn" || (*piece).get_pieceType() == "knight" 
                     || (*piece).get_pieceType() == "king"){
-                        if ( (*piece).get_pieceType() == "pawn") continue;
+                        if ( (*piece).get_pieceType() == "pawn" && ((newY - j) == 0)) continue;//POSSIBLE ERROR HERE
 
                         //verifies that the current player moving is in check
                         Piece* attacked_piece = chessboard[newX][newY];
@@ -483,7 +601,7 @@ bool chessBoard::isInCheck(Color playerColor, bool checkingCurrentPosition){
                         if((*attacked_piece).get_pieceType() == "king" && (*attacked_piece).get_color() == playerColor){
                             if(checkingCurrentPosition) {
                                 _isInCheck = true;
-                                _checkState = {newX, newY};
+                                _checkState = KingChecked(newX, newY);
                             }
                             return true;
                         }
@@ -501,7 +619,7 @@ bool chessBoard::isInCheck(Color playerColor, bool checkingCurrentPosition){
                         if((*attacked_piece).get_pieceType() == "king" && (*attacked_piece).get_color() == playerColor){
                             if(checkingCurrentPosition) {
                                 _isInCheck = true;
-                                _checkState = {newX, newY};
+                                _checkState = KingChecked(newX, newY);
                             }
                             return true;
                         }
@@ -521,6 +639,9 @@ bool chessBoard::isInCheck(Color playerColor, bool checkingCurrentPosition){
 
 //method to move pieces
 void chessBoard::move(int prevX, int prevY, int newX, int newY){
+    _moveTypeFlag = "0";
+    _promotionFlag = "0";
+    _checkmateFlag = "0";
     //if the coords are not valid then return
     if(!areCoordsValid(prevX, prevY) || !areCoordsValid(newX, newY)) return;
 
@@ -559,17 +680,25 @@ void chessBoard::move(int prevX, int prevY, int newX, int newY){
 
     //special moves
     handlingSpecialMoves(piece, prevX, prevY, newX, newY);
-
+    
     //deleting pieces that have been captured
     Piece* capturedPiece = chessboard[newX][newY];
     if(capturedPiece){
         chessboard[prevX][prevY] = nullptr;
         chessboard[newX][newY] = piece;
         delete capturedPiece;
+        clearThreeFoldRepetitionDictionary();
+        _moveTypeFlag = "1";
     } else {
         chessboard[prevX][prevY] = nullptr;
         chessboard[newX][newY] = piece;
     }   
+
+    
+    //if a pawn moves forward then the board position is irreverable (clear dicitonary)
+    if((*piece).get_pieceType() == "pawn"){
+        clearThreeFoldRepetitionDictionary();
+    }
 
     //handling pawn promotion
     Piece* oldPawn = nullptr;
@@ -581,35 +710,61 @@ void chessBoard::move(int prevX, int prevY, int newX, int newY){
                 chessboard[newX][newY] = nullptr;
 
                 char characterPiece;
+                std::string characterString;
                 FENChar promotedPiece;
-                std::cout << "Enter promoted piece: ";
-                std::cin >> characterPiece;
+                if(userColor == _playerColor){
+                    std::cout << "Enter promoted piece: ";
+                    characterString = voiceInput("get_promotion_piece");
+                    if(characterString == "Knight") {
+                        characterPiece = 'n';
+                        _promotionFlag = "2";
+                    } else {
+                        characterPiece = 'q';
+                        _promotionFlag = "1";
+                    }
+                } else {
+                    characterPiece = enginePromotedPiece;
+                }
                 promotedPiece = character_to_FENChar(characterPiece);
-
+                
+                //only promotion options are queen or knight
                 if(promotedPiece == BlackKnight || promotedPiece == WhiteKnight)
                     chessboard[newX][newY] = new Knight(_playerColor);
-                else if(promotedPiece == BlackBishop || promotedPiece == WhiteBishop)
-                    chessboard[newX][newY] = new Bishop(_playerColor);
-                else if(promotedPiece == BlackRook || promotedPiece == WhiteRook){
-                    chessboard[newX][newY] = new Rook(_playerColor);
-                    Piece* newRook = chessboard[newX][newY];
-                    (*newRook).set_hasMoved();
-                }
                 else chessboard[newX][newY] = new Queen(_playerColor);
                 piece = chessboard[newX][newY];
                 delete oldPawn;
+                _checkmateFlag = "1";
             }
         }
     }
 
     //updating variables for the next player's move
-    _lastMove = {piece, prevX, prevY, newX, newY};
+    _lastMove = LastMove(piece, prevX, prevY, newX, newY);
     _playerColor = _playerColor == White ? Black : White;
     isInCheck(_playerColor, true);
     _safeSquares = findSafeSquares();
-    _isGameOver = isGameFinished();
 
     if(_playerColor == White) fullNumberOfMoves++;
+
+    _boardAsFEN = get_FENBoard();
+    updateThreeFoldRepetitionDictionary(_boardAsFEN);
+
+    _isGameOver = isGameFinished();
+    
+    if(_isGameOver) _checkmateFlag = "2";
+    
+    //sending data to arduino
+    std::string serialData = _moveCoords + _moveTypeFlag + _checkmateFlag + _promotionFlag + "\n";
+    std::cout << "Serial Data Input: " << serialData << std::endl;
+    
+    const char* serialDataStr = serialData.c_str();
+    int serialPort;
+    std::string moveCompleted = "nc";
+    
+    serialPort = initializeComm();
+    if(serialPort != -1){
+        sendData(serialPort, serialDataStr);
+    }
 }//end move()
 
 //gets user input from user's chess move then determines if that move was the most recent move made
@@ -618,46 +773,6 @@ bool chessBoard::isSquareLastMove(int x, int y){
     return ((x == _lastMove.prevX) && (y == _lastMove.prevY)) || ((x == _lastMove.currX) && (y == _lastMove.currY));
 }
 
-//to implement run a for loop that iterates through all the squares and lights and LED to 
-//show that that square is checked
 bool chessBoard::isSquareChecked(int x, int y){
     return _isInCheck && _checkState.x == x && _checkState.y == y;
-}
-
-/////////////////////////////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////////////////////////////
-    // Main game loop.
-int main() {
-    chessBoard chess;
-    std::vector<std::vector<FENChar>> FENChar_chessboard;
-    std::vector<SafeSquares> safesquares;
-
-    FENChar_chessboard = chess.chessBoardView();
-    safesquares = chess.get_safeSquares();
-
-    int prevX, prevY, newX, newY;
-    while (true) {
-        FENChar_chessboard = chess.chessBoardView();
-        safesquares = chess.get_safeSquares();
-        for (int i = chess.getChessBoardSize(); i > 0; i--){
-            for (int j = 0; j < chess.getChessBoardSize(); j++){
-                std::string str(1, FENChar_chessboard[i-1][j]);
-                std::cout << str << " ";
-            }
-            std::cout << i << "\n";
-        }
-        for (int i = 0; i < chess.getChessBoardSize(); i++){
-            std::cout << i+1 << " ";
-        }
-        std::cout << "\n";
-        if (!chess.get_isGameOver()){
-            std::cout << "Enter Move: ";
-            std::cin >> prevX >> prevY >> newX >> newY;
-            chess.move(prevY-1, prevX-1, newY-1, newX-1);
-        } else {
-            break;
-        }
-    }
-    std::cout << chess.get_gameOverMessage();
-    return 0;
 }

@@ -8,6 +8,8 @@
 #include <sstream>
 #include <cmath>
 
+const std::vector<std::string> columns = {"a", "b", "c", "d", "e", "f", "g", "h"};
+
 struct Coords{
     int x;
     int y;
@@ -39,8 +41,6 @@ enum FENChar{
     BlackPawn = 'p',
     None = 'x'
 };
-
-
 
 class Piece {
     protected:
