@@ -30,7 +30,7 @@
 - Files include (chess_board, stockfish_service, FENConverter, main, pieces)
 - Stockfish is running locally on the Raspberry Pi
 
-# Serial Communication 
+### Serial Communication 
 
 - This project utilized a Raspberry Pi 3 Model B for the Chess Logic/Game functionality and an Arduino Uno for the Gantry System Control
 - Sends a 7 digit number to the Arduino -> First four digits are the initial and end coordinates of the piece of interest, Final three digits are corresponding flags for special moves, etc. 
