@@ -1,4 +1,4 @@
-# Noblemate (Automated Voice Controlled Chess Game)
+# NobleMate (Automated Voice Controlled Chess Game)
 - ### Project Contributors Include: Saud Amjad, Grayson Bibby, Hamzah Nadeem, Kunj Patel, Megh Patel, Nihar Trivedi
 
 **Project Description:** Over the past semester, our team, NobleMate, had designed a voice-controlled, completely automated chess game system against Stockfish.  Our focus being hands-free control with minimal intervention from the user, utilizing an X-Y Coordinate Mechanical Gantry system with an electromagnet for autonomous movement. Each chess piece was 3D printed with slots for magnets at the base. You say your moves by speaking into the microphone when prompted, saying "Pawn from C2 to C3" and this data is serially communicated to the gantry system. You can select your colour (White/Black) and can choose a difficulty (Easy, Medium, Difficult, Insane)
